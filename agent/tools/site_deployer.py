@@ -1,4 +1,5 @@
 import os
+import re
 import asyncio
 
 import config
@@ -42,14 +43,22 @@ async def deploy_to_vercel(project_name: str) -> dict:
                 "url": "",
             }
 
-        # The last line of stdout is usually the deployment URL
+        # The last line of stdout is usually the deployment URL.
+        # IMPORTANT: Never synthesize the URL from project_name — Vercel may append
+        # a suffix (e.g. "-site") when the requested slug collides with an existing
+        # project owned by another team, so {project_name}.vercel.app is NOT a
+        # reliable predictor of the live URL.
         deploy_url = stdout_text.split("\n")[-1].strip()
+
+        # Pull the canonical https://…vercel.app production alias out of stdout
+        # if present; otherwise fall back to the raw last line.
+        alias_match = re.search(r"https://[a-z0-9-]+\.vercel\.app", stdout_text)
+        live_url = alias_match.group(0) if alias_match else deploy_url
 
         return {
             "error": None,
-            "url": deploy_url,
+            "url": live_url,
             "project_name": project_name,
-            "expected_url": f"https://{project_name}.vercel.app",
         }
 
     except asyncio.TimeoutError:

@@ -147,7 +147,12 @@ async def read_site_file_tool(args):
 
 @tool(
     "deploy_site",
-    "Deploy the generated site to Vercel. Returns the live URL. The site will be available at {project_name}.vercel.app.",
+    "Deploy the generated site to Vercel. Returns the actual live URL in the 'url' field. "
+    "CRITICAL: You MUST use the exact 'url' value from this tool's response when calling "
+    "mark_lead_completed and when printing the final summary. DO NOT synthesize "
+    "{project_name}.vercel.app yourself — Vercel may assign a different subdomain if the "
+    "slug collides with an existing project (e.g. 'hijab-boutique' may resolve to "
+    "'hijab-boutique-site.vercel.app'). Trust the returned URL verbatim.",
     {"project_name": str},
 )
 async def deploy_site_tool(args):
