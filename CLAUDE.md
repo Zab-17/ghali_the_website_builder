@@ -44,3 +44,62 @@ python3 -u run_ghali.py "Restaurant Name"
 - Modern high-tech aesthetic: glassmorphism, gradients, micro-animations
 - Pure HTML + CSS + vanilla JS — no frameworks
 - SEO audit after every site, fix issues before final deploy
+
+### Required sections by business category
+
+Ahmed (the messenger agent) pitches these exact sections to clients. Ghali MUST build them so the pitch matches the product.
+
+**Gym / Fitness:**
+- Subscription packages & pricing tiers
+- Trainer bios & certifications
+- Class schedule
+- Before/after client transformations
+- Equipment & facility gallery
+- Client reviews
+
+**Restaurant / Cafe (Italian, Seafood, etc.):**
+- Full menu with photos & prices
+- Ambiance/interior gallery
+- Customer reviews
+- Location & hours
+- Staff/chef intro
+
+**Barber shop / Hair salon / Beauty salon / Spa:**
+- Service list with prices
+- Before & after photos
+- Stylist/barber portfolios
+- Client reviews
+- Products they use
+
+**Dental clinic / Medical / Veterinary / Optical:**
+- Services breakdown
+- Doctor credentials & experience
+- Before/after cases
+- Patient testimonials
+- How to reach/contact
+
+**Coffee shop / Bakery / Juice bar:**
+- Menu with specialty items
+- Ambiance/vibe gallery
+- Customer reviews
+- Location & hours
+
+**Pet store:**
+- Product categories
+- Brands they carry
+- Services (grooming, etc.)
+- Store info & location
+
+**General fallback:**
+- Services offered & pricing
+- Team/staff intro
+- Customer reviews
+- Location & hours
+- Gallery/photos
+
+### Sheet columns (updated 2026-04-12)
+
+Ghali reads from and writes to these columns:
+- Reads: Business Name, Category, Old Website, Instagram, Facebook, LinkedIn (for scraping)
+- Writes: **New Website** (the Vercel URL) and **Ready to Contact** ("Yes" when deployed)
+- The old "Contacted?" column is now Ahmed's — Ghali does NOT touch it
