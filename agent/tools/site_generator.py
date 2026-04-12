@@ -107,6 +107,11 @@ def _localize_images(html: str, images_dir: str) -> tuple[str, int, int]:
         r'((?:src|data-[\w-]+|srcset|poster)\s*=\s*|url\()(["\']?)(https?://[a-z0-9.-]*googleusercontent\.com/[^\s"\')]+)\2',
         re.IGNORECASE,
     )
+    # fbcdn.net / cdninstagram.com / gstatic.com — often have no file extension
+    fbcdn_pattern = re.compile(
+        r'((?:src|data-[\w-]+|srcset|poster)\s*=\s*|url\()(["\']?)(https?://[a-z0-9.-]*(?:fbcdn\.net|cdninstagram\.com|gstatic\.com)/[^\s"\')]+)\2',
+        re.IGNORECASE,
+    )
 
     os.makedirs(images_dir, exist_ok=True)
     url_to_local: dict[str, str] = {}
@@ -132,6 +137,7 @@ def _localize_images(html: str, images_dir: str) -> tuple[str, int, int]:
     html = attr_pattern.sub(_process, html)
     html = lookaside_pattern.sub(_process, html)
     html = googleusercontent_pattern.sub(_process, html)
+    html = fbcdn_pattern.sub(_process, html)
     return html, downloaded, failed
 
 
@@ -192,6 +198,74 @@ def _scrub_remote_image_refs(html: str, images_dir: str) -> tuple[str, int]:
     return html, scrubbed
 
 
+def _validate_local_image_refs(html: str, project_dir: str, images_dir: str) -> tuple[str, int]:
+    """Verify every local image reference (images/…) actually exists on disk.
+
+    If a referenced file is missing, replace the <img> tag with a transparent 1x1
+    placeholder so the layout doesn't show a broken-image icon. This catches the case
+    where the AI fabricates a path like images/hero.jpg that was never downloaded.
+
+    Returns (new_html, fixed_count).
+    """
+    fixed = 0
+
+    # Pick a real local image as fallback (same logic as _scrub_remote_image_refs)
+    fallback = None
+    if os.path.isdir(images_dir):
+        for name in sorted(os.listdir(images_dir)):
+            candidate = os.path.join(images_dir, name)
+            if not os.path.isfile(candidate):
+                continue
+            try:
+                with open(candidate, "rb") as f:
+                    head = f.read(16)
+                if _detect_image_type(head):
+                    fallback = f"images/{name}"
+                    break
+            except Exception:
+                continue
+
+    # Match <img src="images/..."> (local relative paths)
+    local_img_pattern = re.compile(
+        r'(<img\b[^>]*?\bsrc\s*=\s*)(["\'])(images/[^"\']+)\2',
+        re.IGNORECASE,
+    )
+
+    def _check(m):
+        nonlocal fixed
+        prefix, quote, rel_path = m.group(1), m.group(2), m.group(3)
+        abs_path = os.path.join(project_dir, rel_path)
+        if os.path.isfile(abs_path) and os.path.getsize(abs_path) > 100:
+            return m.group(0)  # file exists — keep as-is
+        fixed += 1
+        if fallback and fallback != rel_path:
+            return f'{prefix}{quote}{fallback}{quote}'
+        # No fallback available — use a transparent 1x1 data-URI so layout holds
+        return f'{prefix}{quote}data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7{quote}'
+
+    html = local_img_pattern.sub(_check, html)
+
+    # Also check CSS url(images/...) references
+    css_url_pattern = re.compile(
+        r'(url\()(["\']?)(images/[^"\')\s]+)\2(\))',
+        re.IGNORECASE,
+    )
+
+    def _check_css(m):
+        nonlocal fixed
+        prefix, quote, rel_path, suffix = m.group(1), m.group(2), m.group(3), m.group(4)
+        abs_path = os.path.join(project_dir, rel_path)
+        if os.path.isfile(abs_path) and os.path.getsize(abs_path) > 100:
+            return m.group(0)
+        fixed += 1
+        if fallback and fallback != rel_path:
+            return f'{prefix}{quote}{fallback}{quote}{suffix}'
+        return f'{prefix}{quote}data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7{quote}{suffix}'
+
+    html = css_url_pattern.sub(_check_css, html)
+    return html, fixed
+
+
 def write_site_files(project_name: str, files: dict[str, str]) -> str:
     """Write generated site files to disk, downloading remote images locally.
 
@@ -230,10 +304,26 @@ def write_site_files(project_name: str, files: dict[str, str]) -> str:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
 
-    if total_dl or total_fail or total_scrubbed:
+    # Final safety net: verify every local images/ reference points to an actual file.
+    # This catches fabricated paths like "images/hero.jpg" that the AI invented but
+    # were never downloaded. Must run AFTER files are written so the project_dir exists.
+    total_validated = 0
+    for filename in list(processed.keys()):
+        if filename.lower().endswith((".html", ".htm", ".css")):
+            filepath = os.path.join(project_dir, filename)
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+            new_content, validated = _validate_local_image_refs(content, project_dir, images_dir)
+            if validated:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(new_content)
+                total_validated += validated
+
+    if total_dl or total_fail or total_scrubbed or total_validated:
         print(
             f"  [images] downloaded {total_dl}, failed {total_fail}, "
-            f"scrubbed {total_scrubbed} stale remote refs → {images_dir}"
+            f"scrubbed {total_scrubbed} stale remote refs, "
+            f"fixed {total_validated} missing local refs → {images_dir}"
         )
 
     return project_dir

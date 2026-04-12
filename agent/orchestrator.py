@@ -370,27 +370,30 @@ Rules for this variant:
 ### Step 5: Write files
 Use `write_site` to save all files to disk.
 
-### Step 6: SEO Audit
-Use `seo_audit` with the generated HTML. Fix ANY issues — especially critical and medium severity.
-IMPORTANT: When fixing SEO issues, DO NOT break the text rules. Every fix must respect the 1.5-line and 3-line limits.
-
-### Step 7: Deploy to Vercel
+### Step 6: Deploy to Vercel
 Use `deploy_site` with the project slug. Report the live URL.
+SKIP the SEO audit — these are demos. SEO optimization happens only after a client signs.
 
-### Step 8: Mark complete
+### Step 7: Mark complete
 Use `mark_lead_completed` with the deployed URL.
 
-### Step 9: Report
+### Step 8: Report
 Print a clear summary:
 ```
 ✅ DEPLOYED: {business_name}
    URL: {vercel_url}
    Brand colors: {primary} / {secondary} / {accent}
    Sections: Hero, About, Services, Gallery, Reviews, Contact
-   SEO Score: {score}/100
 ```
 
 Then move to the next lead if there are more to process.
+
+## IMAGE RULES (NON-NEGOTIABLE — VIOLATION = BROKEN SITE)
+- ONLY use image URLs that were returned by the scraping tools (scrape_website, scrape_instagram, scrape_facebook, scrape_google_maps). NEVER invent or guess image URLs.
+- NEVER fabricate local paths like "images/hero.jpg" or "images/barber-shop.jpg" — you don't know what filenames the image downloader will assign. Use the ACTUAL remote URLs from the scrape results and the write_site tool will download and rewrite them automatically.
+- If a section needs an image but no suitable image was scraped, SKIP that section or use a CSS gradient/solid color background instead of a broken image reference.
+- For hero backgrounds, ALWAYS use a real scraped image URL. If no hero-worthy image exists, use a CSS gradient matching the brand palette as the hero background instead.
+- For CSS background-image properties, use the same real scraped URLs — they will be downloaded and localized automatically.
 
 ## RULES
 - NEVER use placeholder text like "Lorem ipsum" or "Coming soon"
