@@ -97,6 +97,10 @@ Ahmed (the messenger agent) pitches these exact sections to clients. Ghali MUST 
 - Location & hours
 - Gallery/photos
 
+### Required on EVERY site (all categories)
+- **WhatsApp chat button** — floating button that opens `https://wa.me/<phone>` so visitors can message the business directly. Always visible, bottom-right corner.
+- **Contact section** — phone number, address, Google Maps embed, and working hours
+
 ### Sheet columns (updated 2026-04-12)
 
 Ghali reads from and writes to these columns:
