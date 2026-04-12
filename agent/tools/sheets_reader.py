@@ -3,20 +3,23 @@ import gspread
 import config
 
 # Column indices (0-based) matching Hamed's sheet layout
+# Updated 2026-04-12: "Website URL" → "Old Website", added "New Website" + "Ready to Contact"
 COL_NAME = 0
 COL_CATEGORY = 1
 COL_NEIGHBORHOOD = 2
 COL_RATING = 3
 COL_REVIEW_COUNT = 4
 COL_PHONE = 6
-COL_WEBSITE = 7
+COL_WEBSITE = 7          # "Old Website" (their existing site)
 COL_WEBSITE_ISSUES = 8
 COL_INSTAGRAM = 9
 COL_FACEBOOK = 11
 COL_LINKEDIN = 13
 COL_STATUS = 14
 COL_PRIORITY = 15
-COL_CONTACTED = 17  # "Contacted?" column
+COL_NEW_WEBSITE = 17     # "New Website" — Ghali writes the Vercel URL here
+COL_READY_TO_CONTACT = 18  # "Ready to Contact" — "Yes" when site is deployed
+COL_CONTACTED = 19       # "Contacted?" — Ahmed fills this
 
 
 def _get_sheet() -> gspread.Worksheet:
@@ -32,16 +35,18 @@ def read_leads(count: int = 1) -> list[dict]:
 
     leads = []
     for row_idx, row in enumerate(all_rows):
-        if len(row) <= COL_CONTACTED:
+        if len(row) <= COL_NEW_WEBSITE:
             continue
 
         name = row[COL_NAME].strip()
-        contacted = row[COL_CONTACTED].strip()
 
-        # Skip separator rows, header, already contacted
+        # Skip header
         if not name or name.startswith("---") or name == "Business Name":
             continue
-        if contacted not in ("No", "no", ""):
+
+        # Skip if New Website already has a URL (site already built)
+        new_website = row[COL_NEW_WEBSITE].strip() if len(row) > COL_NEW_WEBSITE else ""
+        if new_website and new_website.startswith("http"):
             continue
 
         website = row[COL_WEBSITE].strip() if len(row) > COL_WEBSITE else ""
@@ -76,15 +81,16 @@ def read_leads(count: int = 1) -> list[dict]:
 
 
 def mark_lead_in_progress(row_index: int) -> None:
-    """Mark a lead as 'In Progress' in the Contacted? column."""
+    """Mark a lead as in progress by writing 'Building...' to New Website."""
     ws = _get_sheet()
-    ws.update_cell(row_index, COL_CONTACTED + 1, "In Progress")
+    ws.update_cell(row_index, COL_NEW_WEBSITE + 1, "Building...")
 
 
 def mark_lead_done(row_index: int, site_url: str) -> None:
-    """Mark a lead as done with the deployed site URL."""
+    """Mark a lead as done: write Vercel URL to New Website, set Ready to Contact = Yes."""
     ws = _get_sheet()
-    ws.update_cell(row_index, COL_CONTACTED + 1, f"Site: {site_url}")
+    ws.update_cell(row_index, COL_NEW_WEBSITE + 1, site_url)
+    ws.update_cell(row_index, COL_READY_TO_CONTACT + 1, "Yes")
 
 
 def find_lead_by_name(business_name: str) -> dict | None:
