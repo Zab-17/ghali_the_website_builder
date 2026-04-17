@@ -24,10 +24,10 @@ async def deploy_to_vercel(project_name: str) -> dict:
 
     try:
         # Deploy to Vercel with production flag
+        # --name is deprecated; Vercel auto-links via .vercel/project.json
         # Using create_subprocess_exec (not shell) — safe against injection
         proc = await asyncio.create_subprocess_exec(
             "vercel", "deploy", "--yes", "--prod",
-            "--name", project_name,
             cwd=project_dir,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -43,17 +43,38 @@ async def deploy_to_vercel(project_name: str) -> dict:
                 "url": "",
             }
 
-        # The last line of stdout is usually the deployment URL.
-        # IMPORTANT: Never synthesize the URL from project_name — Vercel may append
-        # a suffix (e.g. "-site") when the requested slug collides with an existing
-        # project owned by another team, so {project_name}.vercel.app is NOT a
-        # reliable predictor of the live URL.
-        deploy_url = stdout_text.split("\n")[-1].strip()
+        # Vercel CLI (50+) prints the per-deployment hash URL to stdout and
+        # the clean production alias to stderr (e.g. "✅ Production: https://slug.vercel.app").
+        # The hash URL is always gated by Deployment Protection and returns
+        # an "Authentication Required" page to the public — so we MUST prefer
+        # the alias. Scan both streams.
+        combined = stdout_text + "\n" + stderr_text
+        all_urls = re.findall(r"https://[a-z0-9-]+\.vercel\.app", combined)
 
-        # Pull the canonical https://…vercel.app production alias out of stdout
-        # if present; otherwise fall back to the raw last line.
-        alias_match = re.search(r"https://[a-z0-9-]+\.vercel\.app", stdout_text)
-        live_url = alias_match.group(0) if alias_match else deploy_url
+        # Project-scoped hash URLs have the form:
+        #   {slug}-{hash}-{team-or-user}-projects.vercel.app
+        # The trailing "-projects" is the tell. Filter those out — what remains
+        # should be the clean public alias(es).
+        public_urls = [u for u in all_urls if not u.endswith("-projects.vercel.app")]
+
+        if public_urls:
+            # Shortest wins — e.g. "slug.vercel.app" beats "slug-git-main.vercel.app"
+            live_url = min(public_urls, key=len)
+        elif all_urls:
+            # No alias found — deploy likely did not finish aliasing. Surface
+            # an error rather than sending a protected URL to the client.
+            return {
+                "error": (
+                    "Vercel deploy produced only protected hash URLs; no public "
+                    f"alias found. Raw output:\n{combined}"
+                ),
+                "url": "",
+            }
+        else:
+            return {
+                "error": f"No .vercel.app URL in deploy output:\n{combined}",
+                "url": "",
+            }
 
         return {
             "error": None,
