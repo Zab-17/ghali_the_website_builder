@@ -7,3 +7,7 @@ sites/*/
 .DS_Store
 node_modules/
 .vercel/
+
+# Build/run logs and one-off site outputs
+logs/
+edrak_output/

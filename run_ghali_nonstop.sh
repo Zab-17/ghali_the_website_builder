@@ -28,9 +28,10 @@ while true; do
     wait $PID_A $PID_B $PID_C
 
     # Count how many sites were deployed this batch
-    DEPLOYED_A=$(grep -c "DEPLOYED" "logs/ghali_batch${BATCH}_a.log" 2>/dev/null || echo 0)
-    DEPLOYED_B=$(grep -c "DEPLOYED" "logs/ghali_batch${BATCH}_b.log" 2>/dev/null || echo 0)
-    DEPLOYED_C=$(grep -c "DEPLOYED" "logs/ghali_batch${BATCH}_c.log" 2>/dev/null || echo 0)
+    DEPLOYED_A=$(grep -c "DEPLOYED" "logs/ghali_batch${BATCH}_a.log" 2>/dev/null || true)
+    DEPLOYED_B=$(grep -c "DEPLOYED" "logs/ghali_batch${BATCH}_b.log" 2>/dev/null || true)
+    DEPLOYED_C=$(grep -c "DEPLOYED" "logs/ghali_batch${BATCH}_c.log" 2>/dev/null || true)
+    DEPLOYED_A=${DEPLOYED_A:-0}; DEPLOYED_B=${DEPLOYED_B:-0}; DEPLOYED_C=${DEPLOYED_C:-0}
     TOTAL=$((DEPLOYED_A + DEPLOYED_B + DEPLOYED_C))
 
     echo ""
